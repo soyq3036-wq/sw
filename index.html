@@ -1,4 +1,50 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>패도혈 실시간자리</title>
+
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet">
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+
+<style>
+body { font-family:'Pretendard'; background:#f5f7fa; padding:20px; }
+h2 { text-align:center; }
+
+.section {
+  max-width:600px;
+  margin:20px auto;
+  background:white;
+  padding:15px;
+  border-radius:12px;
+}
+
+.item {
+  display:flex;
+  justify-content:center;
+  gap:10px;
+  margin-bottom:8px;
+}
+
+input { width:140px; text-align:center; }
+
+button { padding:5px 10px; cursor:pointer; }
+.del { background:#ddd; }
+.save { background:#22c55e; color:white; }
+.auto { background:#3b82f6; color:white; }
+</style>
+</head>
+
+<body>
+
+<h2>패도혈 실시간자리</h2>
+<div id="app"></div>
+
 <script>
+// 🔥 Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyAVBh5btDorOSdGOe6vH_eYYVjwokrdHOk",
   authDomain: "array-ff467.firebaseapp.com",
@@ -9,14 +55,15 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-// 🔥 닉네임 (처음 1번만 입력)
+// 🔥 닉네임
 let myName = localStorage.getItem("nickname");
 if(!myName){
-  myName = prompt("닉네임 입력");
+  myName = prompt("닉네임 입력") || "익명";
   localStorage.setItem("nickname", myName);
 }
 
-let data = {
+// 데이터 구조
+let layout = {
   "강남자리": ["11시 방","11시 외각","1시 방","1시 외각"],
   "메인": ["5시 방","6시 방","6시 외각"],
   "서브": ["9시 방","9시 외각","3시 방","중앙법진"]
@@ -25,42 +72,43 @@ let data = {
 let state = {};
 let waitList = [];
 
-// 실시간
+// 🔥 실시간 로드
 db.ref("tracker").on("value", snap=>{
-  const val = snap.val() || {state:{}, waitList:[]};
-  state = val.state;
-  waitList = val.waitList;
+  let val = snap.val();
+
+  if(!val){
+    val = {state:{}, waitList:[{name:"",time:""}]};
+    db.ref("tracker").set(val);
+  }
+
+  state = val.state || {};
+  waitList = val.waitList || [];
   render();
 });
 
 // 저장
 function save(){
   db.ref("tracker").update({
-    state: state,
-    waitList: waitList
+    state,
+    waitList
   });
-}
-
-// 다음칸 이동
-function moveNext(arr, current){
-  const i = arr.indexOf(current);
-  if(arr[i+1]) arr[i+1].focus();
 }
 
 // 자동 배치
 function autoAssign(){
   let empty = [];
-  Object.keys(data).forEach(s=>{
-    data[s].forEach(l=>{
-      if(!state[l]) empty.push(l);
+
+  Object.values(layout).forEach(arr=>{
+    arr.forEach(pos=>{
+      if(!state[pos]) empty.push(pos);
     });
   });
 
-  empty.forEach(l=>{
+  empty.forEach(pos=>{
     if(waitList.length){
-      let n = waitList.shift();
-      if(n.name){
-        state[l] = {name:n.name, user:myName};
+      let w = waitList.shift();
+      if(w.name){
+        state[pos] = {name:w.name, user:myName};
       }
     }
   });
@@ -70,67 +118,44 @@ function autoAssign(){
 
 // 렌더
 function render(){
-  const app = document.getElementById('app');
-  app.innerHTML = '';
+  const app = document.getElementById("app");
+  app.innerHTML = "";
 
-  let inputs = [];
+  Object.entries(layout).forEach(([section, list])=>{
+    const box = document.createElement("div");
+    box.className="section";
 
-  Object.keys(data).forEach(section=>{
-    const box = document.createElement('div');
-    box.className = 'section';
-
-    const title = document.createElement('h3');
+    const title = document.createElement("h3");
     title.innerText = section;
     box.appendChild(title);
 
-    data[section].forEach(label=>{
-      const row = document.createElement('div');
-      row.className = 'item';
+    list.forEach(pos=>{
+      const row = document.createElement("div");
+      row.className="item";
 
-      const labelDiv = document.createElement('div');
-      labelDiv.className = 'label';
-      labelDiv.innerText = label;
+      const input = document.createElement("input");
+      input.value = state[pos]?.name || "";
 
-      const input = document.createElement('input');
-      const value = state[label]?.name || '';
-      const user = state[label]?.user || '';
+      const user = document.createElement("span");
+      user.innerText = state[pos]?.user ? `(${state[pos].user})` : "";
 
-      input.value = value;
-      inputs.push(input);
-
-      // 엔터 저장
-      input.addEventListener('keydown', e=>{
-        if(e.key==='Enter'){
-          if(input.value.trim()==="") return;
-          state[label] = {
-            name: input.value,
-            user: myName
-          };
+      input.onkeydown = (e)=>{
+        if(e.key==="Enter"){
+          if(!input.value.trim()) return;
+          state[pos] = {name:input.value, user:myName};
           save();
-          moveNext(inputs, input);
         }
-      });
+      };
 
-      // 작성자 표시
-      const userTag = document.createElement('div');
-      userTag.style.fontSize = '11px';
-      userTag.style.color = '#888';
-      userTag.innerText = user ? `(${user})` : '';
-
-      // 삭제 버튼
-      const delBtn = document.createElement('button');
-      delBtn.innerText='삭제';
-      delBtn.className='del';
-      delBtn.onclick=()=>{
-        state[label] = '';
+      const del = document.createElement("button");
+      del.innerText="삭제";
+      del.className="del";
+      del.onclick=()=>{
+        delete state[pos];
         save();
       };
 
-      row.appendChild(labelDiv);
-      row.appendChild(input);
-      row.appendChild(userTag);
-      row.appendChild(delBtn);
-
+      row.append(input, user, del);
       box.appendChild(row);
     });
 
@@ -138,74 +163,66 @@ function render(){
   });
 
   // 대기
-  const waitBox = document.createElement('div');
-  waitBox.className = 'section';
+  const waitBox = document.createElement("div");
+  waitBox.className="section";
 
-  const t = document.createElement('h3');
-  t.innerText = "대기";
+  const t = document.createElement("h3");
+  t.innerText="대기";
   waitBox.appendChild(t);
 
-  waitList.forEach((item,i)=>{
-    const row = document.createElement('div');
-    row.className = 'item';
+  waitList.forEach((w,i)=>{
+    const row = document.createElement("div");
+    row.className="item";
 
-    const input = document.createElement('input');
-    input.value = item.name;
+    const name = document.createElement("input");
+    name.value = w.name;
 
-    const time = document.createElement('input');
-    time.type='time';
-    time.value=item.time;
+    const time = document.createElement("input");
+    time.type="time";
+    time.value = w.time;
 
-    const userTag = document.createElement('div');
-    userTag.style.fontSize='11px';
-    userTag.style.color='#888';
-    userTag.innerText = item.user ? `(${item.user})` : '';
-
-    const saveBtn = document.createElement('button');
-    saveBtn.innerText='저장';
-    saveBtn.className='save-btn';
+    const saveBtn = document.createElement("button");
+    saveBtn.innerText="저장";
+    saveBtn.className="save";
     saveBtn.onclick=()=>{
-      if(input.value.trim()==="") return;
+      if(!name.value.trim()) return;
       waitList[i] = {
-        name: input.value,
-        time: time.value,
-        user: myName
+        name:name.value,
+        time:time.value,
+        user:myName
       };
       save();
     };
 
-    const del = document.createElement('button');
-    del.innerText='삭제';
-    del.className='del';
+    const del = document.createElement("button");
+    del.innerText="삭제";
+    del.className="del";
     del.onclick=()=>{
       waitList.splice(i,1);
       if(!waitList.length) waitList.push({name:"",time:""});
       save();
     };
 
-    row.appendChild(input);
-    row.appendChild(time);
-    row.appendChild(userTag);
-    row.appendChild(saveBtn);
-    row.appendChild(del);
-
+    row.append(name,time,saveBtn,del);
     waitBox.appendChild(row);
   });
 
-  const add = document.createElement('button');
+  const add = document.createElement("button");
   add.innerText="대기 추가";
   add.onclick=()=>{
-    waitList.push({name:"",time:"",user:""});
+    waitList.push({name:"",time:""});
     save();
   };
 
-  const auto = document.createElement('button');
+  const auto = document.createElement("button");
   auto.innerText="자동 배치";
-  auto.className='auto-btn';
+  auto.className="auto";
   auto.onclick=autoAssign;
 
-  waitBox.appendChild(add);
-  waitBox.appendChild(auto);
+  waitBox.append(add,auto);
   app.appendChild(waitBox);
 }
 </script>
+
+</body>
+</html>
