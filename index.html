@@ -20,16 +20,16 @@ h2 {
 }
 
 .section {
+  max-width:600px;
+  margin:0 auto 20px auto;
   background:white;
   border-radius:16px;
   padding:20px;
-  margin-bottom:20px;
   box-shadow:0 4px 12px rgba(0,0,0,0.06);
 }
 
 h3 {
   margin-bottom:15px;
-  font-size:15px;
 }
 
 .item {
@@ -37,19 +37,31 @@ h3 {
   align-items:center;
   gap:10px;
   margin-bottom:10px;
+  width:100%;
 }
 
 .label {
   width:120px;
-  font-size:14px;
+  min-width:120px;
   color:#555;
 }
 
 input {
-  width:140px;
+  width:180px;
   padding:6px;
   border-radius:8px;
   border:1px solid #ddd;
+  transition:0.2s;
+}
+
+/* 상태 색상 */
+.filled {
+  background:#dcfce7;
+  border-color:#22c55e;
+}
+
+.empty {
+  background:#f1f5f9;
 }
 
 .time {
@@ -74,11 +86,17 @@ button {
 .wait-card {
   padding:8px;
   border-radius:10px;
-  background:#f1f5f9;
+  background:#f8fafc;
 }
 
 .add-btn {
   margin-top:10px;
+}
+
+.auto-btn {
+  margin-top:10px;
+  margin-left:10px;
+  background:#2563eb;
 }
 </style>
 </head>
@@ -103,12 +121,40 @@ function save(){
   localStorage.setItem('waitList', JSON.stringify(waitList));
 }
 
+// 시간 정렬
 function sortWait(){
   waitList.sort((a,b)=>{
     if(!a.time) return 1;
     if(!b.time) return -1;
     return a.time.localeCompare(b.time);
   });
+}
+
+// 자동 배치 (버튼형)
+function autoAssign(){
+  sortWait();
+
+  let emptySlots = [];
+
+  Object.keys(data).forEach(section=>{
+    data[section].forEach(label=>{
+      if(!state[label]){
+        emptySlots.push(label);
+      }
+    });
+  });
+
+  emptySlots.forEach(label=>{
+    if(waitList.length){
+      const next = waitList.shift();
+      if(next.name){
+        state[label] = next.name;
+      }
+    }
+  });
+
+  save();
+  render();
 }
 
 function render(){
@@ -136,10 +182,24 @@ function render(){
       const input = document.createElement('input');
       input.value = state[label] || '';
 
+      // 색상
+      input.classList.add(input.value ? 'filled' : 'empty');
+
+      // 엔터 저장
       input.addEventListener('keydown', e=>{
         if(e.key==='Enter'){
           state[label] = input.value;
           save();
+          render();
+        }
+      });
+
+      // 클릭 삭제
+      input.addEventListener('click', ()=>{
+        if(confirm("삭제할거임?")){
+          state[label] = '';
+          save();
+          render();
         }
       });
 
@@ -171,10 +231,21 @@ function render(){
     time.value = item.time;
     time.className = 'time';
 
+    input.classList.add(input.value ? 'filled' : 'empty');
+
     input.addEventListener('keydown', e=>{
       if(e.key==='Enter'){
         waitList[i] = { name: input.value, time: time.value };
         save();
+        render();
+      }
+    });
+
+    input.addEventListener('click', ()=>{
+      if(confirm("삭제할거임?")){
+        waitList[i].name = '';
+        save();
+        render();
       }
     });
 
@@ -204,7 +275,16 @@ function render(){
     render();
   };
 
+  const autoBtn = document.createElement('button');
+  autoBtn.innerText = "자동 배치";
+  autoBtn.className = "auto-btn";
+  autoBtn.onclick = ()=>{
+    autoAssign();
+  };
+
   waitBox.appendChild(addBtn);
+  waitBox.appendChild(autoBtn);
+
   app.appendChild(waitBox);
 }
 
