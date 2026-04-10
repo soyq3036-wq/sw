@@ -7,17 +7,16 @@
 
 <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet">
 
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+
 <style>
 body {
   font-family: 'Pretendard', sans-serif;
   background:#f5f7fa;
   padding:30px;
 }
-
-h2 {
-  text-align:center;
-  margin-bottom:30px;
-}
+h2 { text-align:center; margin-bottom:30px; }
 
 .section {
   max-width:600px;
@@ -36,10 +35,7 @@ h2 {
   margin-bottom:10px;
 }
 
-.label {
-  width:120px;
-  text-align:center;
-}
+.label { width:120px; text-align:center; }
 
 input {
   width:160px;
@@ -47,14 +43,11 @@ input {
   border-radius:8px;
   border:1px solid #ddd;
   text-align:center;
-  transition:0.2s;
 }
 
-/* 자리 상태 */
-.filled { background:#dcfce7; border-color:#22c55e; }
+.filled { background:#dcfce7; }
 .empty { background:#f1f5f9; }
 
-/* 대기 색상 (시간 기반) */
 .wait-urgent { background:#fecaca; }
 .wait-soon { background:#fde68a; }
 .wait-normal { background:#dbeafe; }
@@ -82,29 +75,46 @@ button {
 <div id="app"></div>
 
 <script>
+// 🔥 Firebase 설정 (니꺼 이미 넣어줌)
+const firebaseConfig = {
+  apiKey: "AIzaSyAVBh5btDorOSdGOe6vH_eYYVjwokrdHOk",
+  authDomain: "array-ff467.firebaseapp.com",
+  databaseURL: "https://array-ff467-default-rtdb.firebaseio.com/",
+  projectId: "array-ff467"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
 let data = {
   "강남자리": ["11시 방","11시 외각","1시 방","1시 외각"],
   "메인": ["5시 방","6시 방","6시 외각"],
   "서브": ["9시 방","9시 외각","3시 방","중앙법진"]
 };
 
-let waitList = JSON.parse(localStorage.getItem('waitList') || '[{"name":"","time":""}]');
-let state = JSON.parse(localStorage.getItem('state') || '{}');
+let state = {};
+let waitList = [];
 
+// 🔥 실시간 감지
+db.ref("tracker").on("value", snap=>{
+  const val = snap.val() || {state:{}, waitList:[]};
+  state = val.state;
+  waitList = val.waitList;
+  render();
+});
+
+// 저장
 function save(){
-  localStorage.setItem('state', JSON.stringify(state));
-  localStorage.setItem('waitList', JSON.stringify(waitList));
+  db.ref("tracker").set({state, waitList});
 }
 
-// 시간 차이 색상
+// 시간 색상
 function getTimeClass(time){
   if(!time) return 'wait-normal';
-
   const now = new Date();
   const [h,m] = time.split(':').map(Number);
   const t = new Date();
   t.setHours(h,m);
-
   const diff = (t - now)/60000;
 
   if(diff < 30) return 'wait-urgent';
@@ -140,16 +150,14 @@ function autoAssign(){
   });
 
   save();
-  render();
 }
 
+// 렌더
 function render(){
   sortWait();
 
   const app = document.getElementById('app');
   app.innerHTML = '';
-
-  let inputs = [];
 
   Object.keys(data).forEach(section=>{
     const box = document.createElement('div');
@@ -171,22 +179,17 @@ function render(){
       input.value = state[label] || '';
       input.classList.add(input.value ? 'filled':'empty');
 
-      inputs.push(input);
-
       input.addEventListener('keydown', e=>{
         if(e.key==='Enter'){
           state[label] = input.value;
           save();
-          moveNext(inputs, input);
-          render();
         }
       });
 
       input.addEventListener('click', ()=>{
         if(confirm("삭제?")){
-          state[label]='';
+          state[label] = '';
           save();
-          render();
         }
       });
 
@@ -212,36 +215,22 @@ function render(){
 
     const input = document.createElement('input');
     input.value = item.name;
-    input.classList.add(input.value ? 'filled':'empty');
 
     const time = document.createElement('input');
     time.type='time';
     time.value=item.time;
     time.className='time';
 
-    inputs.push(input);
-
     input.addEventListener('keydown', e=>{
       if(e.key==='Enter'){
-        waitList[i]={name:input.value,time:time.value};
+        waitList[i] = {name:input.value, time:time.value};
         save();
-        moveNext(inputs, input);
-        render();
       }
     });
 
     time.addEventListener('change', ()=>{
       waitList[i].time = time.value;
       save();
-      render();
-    });
-
-    input.addEventListener('click', ()=>{
-      if(confirm("삭제?")){
-        waitList[i].name='';
-        save();
-        render();
-      }
     });
 
     const del = document.createElement('button');
@@ -251,13 +240,11 @@ function render(){
       waitList.splice(i,1);
       if(!waitList.length) waitList.push({name:"",time:""});
       save();
-      render();
     };
 
     row.appendChild(input);
     row.appendChild(time);
     row.appendChild(del);
-
     waitBox.appendChild(row);
   });
 
@@ -266,7 +253,6 @@ function render(){
   add.onclick=()=>{
     waitList.push({name:"",time:""});
     save();
-    render();
   };
 
   const auto = document.createElement('button');
@@ -276,16 +262,8 @@ function render(){
 
   waitBox.appendChild(add);
   waitBox.appendChild(auto);
-
   app.appendChild(waitBox);
 }
-
-function moveNext(arr, current){
-  const i = arr.indexOf(current);
-  if(arr[i+1]) arr[i+1].focus();
-}
-
-render();
 </script>
 
 </body>
