@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>패도혈 실시간자리</title>
+
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet">
+
+<style>
+body {
+  font-family: 'Pretendard', -apple-system, sans-serif;
+  background: linear-gradient(135deg, #eef2f7, #f8fafc);
+  padding:30px;
+  text-align:center;
+}
+
+h2 {
+  font-size:24px;
+  font-weight:600;
+  margin-bottom:20px;
+}
+
+.top-controls {
+  display:flex;
+  justify-content:center;
+  gap:10px;
+  margin-bottom:25px;
+}
+
+input {
+  padding:12px;
+  width:140px;
+  border-radius:12px;
+  border:1px solid #ddd;
+  background:white;
+  box-shadow:0 2px 6px rgba(0,0,0,0.05);
+  text-align:center;
+  outline:none;
+}
+
+button {
+  padding:10px 12px;
+  border:none;
+  border-radius:12px;
+  background:#111;
+  color:white;
+  cursor:pointer;
+}
+
+.board {
+  display:flex;
+  justify-content:center;
+  gap:25px;
+}
+
+.column {
+  width:240px;
+  padding:15px;
+  border-radius:16px;
+  background: rgba(255,255,255,0.6);
+  backdrop-filter: blur(10px);
+  box-shadow:0 8px 20px rgba(0,0,0,0.08);
+}
+
+h3 {
+  margin-bottom:10px;
+}
+
+.card {
+  padding:14px;
+  margin-top:12px;
+  border-radius:12px;
+  cursor:pointer;
+  transition:0.2s;
+}
+
+.todo {
+  background: rgba(59,130,246,0.15);
+}
+
+.progress {
+  background: rgba(251,191,36,0.2);
+}
+
+.card:hover {
+  transform: translateY(-3px) scale(1.02);
+}
+</style>
+</head>
+
+<body>
+
+<h2>패도혈 실시간자리</h2>
+
+<div class="top-controls">
+  <input id="todoInput" placeholder="대기 입력">
+  <button onclick="addTask('todo')">추가</button>
+
+  <input id="progressInput" placeholder="진행 입력">
+  <button onclick="addTask('progress')">추가</button>
+</div>
+
+<div class="board">
+  <div class="column">
+    <h3>대기인원</h3>
+    <div id="todo"></div>
+  </div>
+
+  <div class="column">
+    <h3>진행중</h3>
+    <div id="progress"></div>
+  </div>
+</div>
+
+<script>
+let tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
+
+// 👉 고유 ID 생성 함수 (완전 안전)
+function createId() {
+  return Date.now().toString() + Math.random().toString(16).slice(2);
+}
+
+function save() {
+  localStorage.setItem('tasks', JSON.stringify(tasks));
+}
+
+function render() {
+  document.getElementById('todo').innerHTML = '';
+  document.getElementById('progress').innerHTML = '';
+
+  tasks.forEach((t) => {
+    const div = document.createElement('div');
+    div.className = 'card ' + t.status;
+    div.innerText = t.text;
+
+    div.onclick = () => {
+      tasks = tasks.filter(item => item.id !== t.id);
+      save();
+      render();
+    };
+
+    document.getElementById(t.status).appendChild(div);
+  });
+}
+
+function addTask(type) {
+  const input = document.getElementById(type + 'Input');
+  const text = input.value.trim();
+  if (!text) return;
+
+  tasks.push({
+    id: createId(), // 👉 여기 수정됨
+    text,
+    status: type
+  });
+
+  input.value = '';
+  save();
+  render();
+}
+
+render();
+</script>
+
+</body>
+</html>
