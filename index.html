@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>패도혈 실시간자리</title>
+<title>실시간자리</title>
 
 <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet">
 
@@ -13,83 +13,100 @@
 <style>
 body {
   font-family:'Pretendard';
-  background:#000;
-  color:white;
+  background:#f6f7fb;
+  color:#111827;
   padding:20px;
 }
 
 h2 {
   text-align:center;
-  margin-bottom:10px;
 }
 
 .topbar {
-  text-align:center;
-  margin-bottom:20px;
+  max-width:760px;
+  margin:0 auto 20px;
+  background:#fff;
+  border:1px solid #e5e7eb;
+  border-radius:16px;
+  padding:12px;
+  display:flex;
+  justify-content:space-between;
 }
 
 .nickname {
+  color:#6b7280;
   font-size:14px;
-  color:#94a3b8;
 }
 
 .section {
-  max-width:720px;
+  max-width:760px;
   margin:20px auto;
-  background:#0b0b0b;
+  background:#fff;
   border-radius:18px;
   padding:20px;
-  box-shadow:0 0 20px rgba(0,0,0,0.8);
-  border:1px solid #111;
+  border:1px solid #eef2f7;
+  box-shadow:0 10px 25px rgba(0,0,0,0.05);
 }
 
 h3 {
   text-align:center;
-  margin-bottom:15px;
 }
 
 .item {
   display:flex;
-  justify-content:center;
   align-items:center;
+  justify-content:center;
   gap:10px;
   margin-bottom:10px;
+  flex-wrap:wrap;
 }
 
 .label {
   width:120px;
   text-align:right;
-  color:#cbd5f5;
+  color:#6b7280;
 }
 
 input {
-  width:130px;
-  padding:6px;
-  border-radius:8px;
-  border:none;
+  width:120px;
+  padding:8px;
+  border-radius:10px;
+  border:1px solid #e5e7eb;
   text-align:center;
-  background:#111;
-  color:white;
+  background:#f9fafb;
+}
+
+input:focus {
+  outline:none;
+  border-color:#60a5fa;
+  box-shadow:0 0 0 3px rgba(96,165,250,0.2);
+  background:#fff;
 }
 
 button {
-  padding:5px 10px;
+  padding:6px 10px;
   border:none;
-  border-radius:8px;
+  border-radius:10px;
   cursor:pointer;
 }
 
-.save { background:#16a34a; color:white; }
-.del { background:#374151; color:white; }
-.del:hover { background:#dc2626; }
+.save { background:#3b82f6; color:white; }
+.del { background:#e5e7eb; color:#374151; }
+.del:hover { background:#ef4444; color:white; }
 
-.wait-normal { background:#0b2a5a; }
-.wait-soon { background:#a16207; }
-.wait-urgent { background:#7f1d1d; }
+/* 상태 */
+.wait-normal { background:#eef2ff; }
+.wait-soon { background:#fff7ed; }
+.wait-urgent { background:#fee2e2; }
 
 .wait-row {
-  padding:6px;
-  border-radius:10px;
+  padding:8px;
+  border-radius:12px;
+}
+
+.time-label {
+  font-size:11px;
+  color:#6b7280;
 }
 </style>
 </head>
@@ -99,14 +116,14 @@ button {
 <h2>패도혈 실시간자리</h2>
 
 <div class="topbar">
-  <div id="nick" class="nickname"></div>
-  <div id="online" class="nickname"></div>
+  <div id="nick"></div>
   <button onclick="changeName()">닉네임 변경</button>
 </div>
 
 <div id="app"></div>
 
 <script>
+/* ================= FIREBASE ================= */
 const firebaseConfig = {
   apiKey: "AIzaSyAVBh5btDorOSdGOeV8h_eYYVjwokrdHOk",
   authDomain: "array-ff467.firebaseapp.com",
@@ -117,44 +134,18 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-// 🔥 유저 ID
-let uid = localStorage.getItem("uid");
-if(!uid){
-  uid = Math.random().toString(36).substring(2);
-  localStorage.setItem("uid", uid);
-}
+/* ================= USER ================= */
+let myName = localStorage.getItem("nickname") || prompt("닉네임") || "익명";
+localStorage.setItem("nickname", myName);
 
-// 🔥 닉네임
-function getName(){
-  let name = localStorage.getItem("nickname");
-
-  if(!name || name.trim()===""){
-    name = prompt("닉네임 입력");
-    if(!name || name.trim()==="") return getName();
-    localStorage.setItem("nickname", name.trim());
-  }
-  return name;
-}
-
-let myName = getName();
 document.getElementById("nick").innerText = `👤 ${myName}`;
-
-// 🔥 접속자 표시
-const myRef = db.ref("presence/" + uid);
-myRef.set(true);
-myRef.onDisconnect().remove();
-
-db.ref("presence").on("value", snap=>{
-  const count = snap.numChildren();
-  document.getElementById("online").innerText = `🟢 접속자: ${count}`;
-});
 
 function changeName(){
   localStorage.removeItem("nickname");
   location.reload();
 }
 
-// 구조
+/* ================= DATA ================= */
 let layout = {
   "강남자리": ["11시 방","11시 외각","1시 방","1시 외각"],
   "메인": ["5시 방","6시 방","6시 외각"],
@@ -164,45 +155,69 @@ let layout = {
 let state = {};
 let waitList = [];
 
-// 실시간
+/* ================= REALTIME ================= */
 db.ref("tracker").on("value", snap=>{
-  let val = snap.val();
-  if(!val){
-    val = {state:{}, waitList:[{name:"",time:""}]};
-    db.ref("tracker").set(val);
-  }
+  const val = snap.val() || {state:{}, waitList:[]};
   state = val.state || {};
   waitList = val.waitList || [];
   render();
 });
 
-// 저장
 function save(){
   db.ref("tracker").set({state, waitList});
 }
 
-// 시간 색상
-function getTimeClass(time){
-  if(!time) return "wait-normal";
-
+/* ================= WAIT AUTO ================= */
+function updateWaitStatus(){
   const now = new Date();
-  const [h,m] = time.split(":").map(Number);
-  const t = new Date();
-  t.setHours(h,m);
+  let changed = false;
 
-  const diff = (t - now)/60000;
+  waitList.forEach(w=>{
+    if(!w.time) return;
 
-  if(diff < 30) return "wait-urgent";
-  if(diff < 60) return "wait-soon";
+    const [h,m] = w.time.split(":").map(Number);
+    const t = new Date();
+    t.setHours(h,m,0,0);
+
+    if(now >= t){
+      if(w.status !== "ready"){
+        w.status = "ready";
+        changed = true;
+      }
+    } else {
+      if(!w.status) w.status = "wait";
+    }
+  });
+
+  if(changed) save();
+}
+
+setInterval(updateWaitStatus,30000);
+
+/* ================= WAIT STYLE ================= */
+function getWaitClass(w){
+  if(w.status === "ready") return "wait-urgent";
+  if(w.status === "wait") return "wait-soon";
   return "wait-normal";
 }
 
-// 렌더
+/* ================= EXPIRE CHECK ================= */
+function isExpired(endTime){
+  if(!endTime) return false;
+  const now = new Date();
+  const [h,m] = endTime.split(":").map(Number);
+  const t = new Date();
+  t.setHours(h,m,0,0);
+  return now > t;
+}
+
+/* ================= RENDER ================= */
 function render(){
   const app = document.getElementById("app");
   app.innerHTML = "";
 
-  Object.entries(layout).forEach(([section, list])=>{
+  /* ================= MAIN ================= */
+  Object.entries(layout).forEach(([section,list])=>{
     const box = document.createElement("div");
     box.className="section";
 
@@ -221,84 +236,129 @@ function render(){
       const input = document.createElement("input");
       input.value = state[pos]?.name || "";
 
+      const time = document.createElement("input");
+      time.type="time";
+      time.value = state[pos]?.endTime || "";
+
       const user = document.createElement("div");
-      user.style.fontSize="11px";
-      user.style.color="#94a3b8";
+      user.className="time-label";
       user.innerText = state[pos]?.user ? `(${state[pos].user})` : "";
 
+      const timeLabel = document.createElement("div");
+      timeLabel.className="time-label";
+
+      if(state[pos]?.endTime){
+        timeLabel.innerText = `⏰ ~ ${state[pos].endTime}`;
+      } else {
+        timeLabel.innerText = "⏰ 미설정";
+      }
+
+      if(state[pos]?.endTime && isExpired(state[pos].endTime)){
+        row.style.background = "#fee2e2";
+      }
+
       const saveBtn = document.createElement("button");
-      saveBtn.innerText="저장";
       saveBtn.className="save";
+      saveBtn.innerText="저장";
       saveBtn.onclick=()=>{
-        if(!input.value.trim()) return;
-        state[pos] = {name:input.value, user:myName};
+        state[pos] = {
+          name:input.value,
+          endTime:time.value,
+          user:myName
+        };
         save();
       };
 
-      const del = document.createElement("button");
-      del.innerText="삭제";
-      del.className="del";
-      del.onclick=()=>{
+      const delBtn = document.createElement("button");
+      delBtn.className="del";
+      delBtn.innerText="삭제";
+      delBtn.onclick=()=>{
         delete state[pos];
         save();
       };
 
-      row.append(label, input, saveBtn, del, user);
+      row.append(label,input,time,saveBtn,delBtn,user,timeLabel);
       box.appendChild(row);
     });
 
     app.appendChild(box);
   });
 
-  // 대기
+  /* ================= WAIT ================= */
   const waitBox = document.createElement("div");
   waitBox.className="section";
 
-  const t = document.createElement("h3");
-  t.innerText="대기";
-  waitBox.appendChild(t);
+  const title = document.createElement("h3");
+  title.innerText="대기";
+  waitBox.appendChild(title);
 
   waitList.forEach((w,i)=>{
     const row = document.createElement("div");
-    row.className="item wait-row " + getTimeClass(w.time);
+    row.className="item wait-row "+getWaitClass(w);
 
     const name = document.createElement("input");
-    name.value = w.name;
+    name.value = w.name||"";
 
     const time = document.createElement("input");
     time.type="time";
-    time.value = w.time;
+    time.value = w.time||"";
+
+    const status = document.createElement("div");
+    status.className="time-label";
+    status.innerText = w.status==="ready" ? "🟢 대기중" : "🟡 대기";
 
     const saveBtn = document.createElement("button");
-    saveBtn.innerText="저장";
     saveBtn.className="save";
+    saveBtn.innerText="저장";
     saveBtn.onclick=()=>{
-      waitList[i] = {name:name.value, time:time.value, user:myName};
+      waitList[i]={
+        name:name.value,
+        time:time.value,
+        status:w.status||"wait",
+        user:myName
+      };
       save();
     };
 
-    const del = document.createElement("button");
-    del.innerText="삭제";
-    del.className="del";
-    del.onclick=()=>{
+    const readyBtn = document.createElement("button");
+    readyBtn.className="save";
+    readyBtn.innerText="즉시 대기중";
+    readyBtn.onclick=()=>{
+      waitList[i]={
+        name:name.value,
+        time:"",
+        status:"ready",
+        user:myName
+      };
+      save();
+    };
+
+    const delBtn = document.createElement("button");
+    delBtn.className="del";
+    delBtn.innerText="삭제";
+    delBtn.onclick=()=>{
       waitList.splice(i,1);
-      if(!waitList.length) waitList.push({name:"",time:""});
       save();
     };
 
-    row.append(name, time, saveBtn, del);
+    row.append(name,time,saveBtn,readyBtn,delBtn,status);
     waitBox.appendChild(row);
   });
 
-  const add = document.createElement("button");
-  add.innerText="대기 추가";
-  add.className="save";
-  add.onclick=()=>{
-    waitList.push({name:"",time:""});
+  const addBtn = document.createElement("button");
+  addBtn.className="save";
+  addBtn.innerText="대기 추가";
+  addBtn.onclick=()=>{
+    waitList.push({
+      name:"새 인원",
+      time:"",
+      status:"ready",
+      user:myName
+    });
     save();
   };
 
-  waitBox.appendChild(add);
+  waitBox.appendChild(addBtn);
   app.appendChild(waitBox);
 }
 </script>
