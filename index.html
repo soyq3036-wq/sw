@@ -10,73 +10,54 @@
 <style>
 body {
   font-family: 'Pretendard', sans-serif;
-  background: linear-gradient(135deg, #eef2f7, #f8fafc);
-  padding:30px;
+  background:#f4f6f8;
+  padding:20px;
 }
 
 h2 {
   text-align:center;
-  margin-bottom:30px;
-  font-size:24px;
-  font-weight:600;
+  margin-bottom:20px;
 }
 
 .section {
-  background: rgba(255,255,255,0.7);
-  backdrop-filter: blur(12px);
-  border-radius:18px;
-  padding:18px;
-  margin-bottom:18px;
-  box-shadow:0 8px 20px rgba(0,0,0,0.06);
-}
-
-h3 {
-  margin-bottom:12px;
-  font-size:14px;
-  color:#555;
+  background:white;
+  border-radius:14px;
+  padding:15px;
+  margin-bottom:15px;
+  box-shadow:0 2px 8px rgba(0,0,0,0.05);
 }
 
 .item {
   display:flex;
-  align-items:center;
+  gap:6px;
   justify-content:center;
-  gap:8px;
-  margin-bottom:10px;
+  margin-bottom:6px;
 }
 
 .label {
-  width:95px;
-  font-size:13px;
+  width:90px;
   text-align:right;
-  color:#666;
+  font-size:13px;
 }
 
 input {
-  width:110px;
-  padding:7px;
-  border-radius:10px;
-  border:1px solid #ddd;
+  width:90px;
+  padding:5px;
   text-align:center;
 }
 
+.time {
+  width:110px;
+}
+
+.wait-card {
+  border-radius:8px;
+  padding:6px;
+}
+
 button {
-  padding:6px 9px;
-  font-size:12px;
-  border:none;
-  border-radius:10px;
-  background:#111;
-  color:white;
-  cursor:pointer;
-}
-
-.del {
-  background:#e5e7eb;
-  color:#333;
-}
-
-.add-wait {
-  width:100%;
-  margin-top:12px;
+  padding:5px;
+  font-size:11px;
 }
 </style>
 </head>
@@ -84,7 +65,6 @@ button {
 <body>
 
 <h2>패도혈 실시간자리</h2>
-
 <div id="app"></div>
 
 <script>
@@ -94,7 +74,7 @@ let data = {
   "서브": ["9시 방","9시 외각","3시 방","중앙법진"]
 };
 
-let waitList = JSON.parse(localStorage.getItem('waitList') || '[""]');
+let waitList = JSON.parse(localStorage.getItem('waitList') || '[]');
 let state = JSON.parse(localStorage.getItem('state') || '{}');
 
 function save(){
@@ -102,13 +82,51 @@ function save(){
   localStorage.setItem('waitList', JSON.stringify(waitList));
 }
 
+// 👉 시간 기준 정렬
+function sortWait(){
+  waitList.sort((a,b)=>{
+    if(!a.time) return 1;
+    if(!b.time) return -1;
+    return a.time.localeCompare(b.time);
+  });
+}
+
+// 👉 색상 계산
+function getColor(time){
+  if(!time) return "#eee";
+
+  const now = new Date();
+  const [h,m] = time.split(":").map(Number);
+  const t = new Date();
+  t.setHours(h,m);
+
+  const diff = (t - now) / 60000;
+
+  if(diff < 30) return "#ffb3b3";
+  if(diff < 60) return "#ffe0b3";
+  return "#dbeafe";
+}
+
+// 👉 자동 자리 배치
+function autoAssign(){
+  Object.keys(state).forEach(k=>{
+    if(!state[k] && waitList.length){
+      const next = waitList.shift();
+      if(next.name){
+        state[k] = next.name;
+      }
+    }
+  });
+}
+
 function render(){
+  sortWait();
+  autoAssign();
+
   const app = document.getElementById('app');
   app.innerHTML = '';
 
-  let allInputs = [];
-
-  Object.keys(data).forEach(section => {
+  Object.keys(data).forEach(section=>{
     const box = document.createElement('div');
     box.className = 'section';
 
@@ -116,7 +134,7 @@ function render(){
     title.innerText = section;
     box.appendChild(title);
 
-    data[section].forEach(label => {
+    data[section].forEach(label=>{
       const row = document.createElement('div');
       row.className = 'item';
 
@@ -127,86 +145,69 @@ function render(){
       const input = document.createElement('input');
       input.value = state[label] || '';
 
-      allInputs.push(input);
-
-      const saveBtn = document.createElement('button');
-      saveBtn.innerText = '저장';
-      saveBtn.onclick = () => {
-        state[label] = input.value;
-        save();
-      };
-
-      const delBtn = document.createElement('button');
-      delBtn.innerText = '삭제';
-      delBtn.className = 'del';
-      delBtn.onclick = () => {
-        state[label] = '';
-        input.value = '';
-        save();
-      };
+      input.addEventListener('keydown', e=>{
+        if(e.key==='Enter'){
+          state[label] = input.value;
+          save();
+        }
+      });
 
       row.appendChild(labelDiv);
       row.appendChild(input);
-      row.appendChild(saveBtn);
-      row.appendChild(delBtn);
-
       box.appendChild(row);
     });
 
     app.appendChild(box);
   });
 
-  // 대기
+  // 👉 대기
   const waitBox = document.createElement('div');
   waitBox.className = 'section';
 
-  const waitTitle = document.createElement('h3');
-  waitTitle.innerText = "대기";
-  waitBox.appendChild(waitTitle);
+  const title = document.createElement('h3');
+  title.innerText = "대기";
+  waitBox.appendChild(title);
 
-  waitList.forEach((name, i) => {
+  waitList.forEach((item,i)=>{
     const row = document.createElement('div');
-    row.className = 'item';
-
-    const labelDiv = document.createElement('div');
-    labelDiv.className = 'label';
-    labelDiv.innerText = "대기";
+    row.className = 'item wait-card';
+    row.style.background = getColor(item.time);
 
     const input = document.createElement('input');
-    input.value = name;
+    input.value = item.name;
 
-    allInputs.push(input);
+    const time = document.createElement('input');
+    time.type = 'time';
+    time.value = item.time;
 
-    const saveBtn = document.createElement('button');
-    saveBtn.innerText = '저장';
-    saveBtn.onclick = () => {
-      waitList[i] = input.value;
-      save();
-    };
+    input.addEventListener('keydown', e=>{
+      if(e.key==='Enter'){
+        waitList[i].name = input.value;
+        waitList[i].time = time.value;
+        save();
+        render();
+      }
+    });
 
-    const delBtn = document.createElement('button');
-    delBtn.innerText = '삭제';
-    delBtn.className = 'del';
-    delBtn.onclick = () => {
+    const del = document.createElement('button');
+    del.innerText = '삭제';
+    del.onclick = ()=>{
       waitList.splice(i,1);
-      if(waitList.length === 0) waitList.push("");
       save();
       render();
     };
 
-    row.appendChild(labelDiv);
     row.appendChild(input);
-    row.appendChild(saveBtn);
-    row.appendChild(delBtn);
+    row.appendChild(time);
+    row.appendChild(del);
 
     waitBox.appendChild(row);
   });
 
   const addBtn = document.createElement('button');
   addBtn.innerText = "대기 추가";
-  addBtn.className = "add-wait";
-  addBtn.onclick = () => {
-    waitList.push("");
+  addBtn.onclick = ()=>{
+    waitList.push({name:"",time:""});
     save();
     render();
   };
@@ -214,33 +215,7 @@ function render(){
   waitBox.appendChild(addBtn);
   app.appendChild(waitBox);
 
-  // 👉 엔터 기능 + 다음칸 이동
-  allInputs.forEach((input, index) => {
-    input.addEventListener('keydown', e => {
-      if(e.key === 'Enter'){
-        input.blur();
-
-        // 저장 처리
-        const label = input.parentElement.querySelector('.label').innerText;
-
-        if(label === "대기"){
-          const i = Array.from(input.parentElement.parentElement.children).indexOf(input.parentElement) - 1;
-          waitList[i] = input.value;
-        } else {
-          state[label] = input.value;
-        }
-
-        save();
-
-        // 다음칸 이동
-        if(allInputs[index + 1]){
-          allInputs[index + 1].focus();
-        } else {
-          input.focus();
-        }
-      }
-    });
-  });
+  save();
 }
 
 render();
