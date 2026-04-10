@@ -24,26 +24,25 @@ h2 {
 }
 
 .section {
-  max-width:650px;
+  max-width:700px;
   margin:0 auto 20px;
   background:white;
   border-radius:18px;
-  padding:20px;
-  box-shadow:0 8px 20px rgba(0,0,0,0.06);
+  padding:25px;
+  box-shadow:0 10px 25px rgba(0,0,0,0.08);
 }
 
 h3 {
   text-align:center;
-  margin-bottom:15px;
-  font-weight:600;
+  margin-bottom:20px;
 }
 
 .item {
   display:flex;
-  align-items:center;
   justify-content:center;
-  gap:10px;
-  margin-bottom:10px;
+  align-items:center;
+  gap:12px;
+  margin-bottom:12px;
 }
 
 .label {
@@ -53,20 +52,21 @@ h3 {
   color:#555;
 }
 
+.input-wrap {
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+
 input {
-  width:150px;
+  width:140px;
   padding:7px;
   border-radius:10px;
   border:1px solid #ddd;
   text-align:center;
-  transition:0.2s;
 }
 
-input:focus {
-  outline:none;
-  border-color:#3b82f6;
-  box-shadow:0 0 0 2px rgba(59,130,246,0.2);
-}
+.time { width:120px; }
 
 button {
   padding:6px 10px;
@@ -74,29 +74,27 @@ button {
   border-radius:8px;
   cursor:pointer;
   font-size:12px;
-  transition:0.2s;
 }
 
-.del {
-  background:#e5e7eb;
+.save { background:#22c55e; color:white; }
+.del { background:#e5e7eb; }
+.del:hover { background:#ef4444; color:white; }
+
+.user {
+  font-size:11px;
+  color:#888;
+  width:60px;
+  text-align:center;
 }
 
-.del:hover {
-  background:#ef4444;
-  color:white;
-}
+/* 🔥 대기 색상 */
+.wait-normal { background:#e0f2fe; }
+.wait-soon { background:#fde68a; }
+.wait-urgent { background:#fecaca; }
 
-.save {
-  background:#22c55e;
-  color:white;
-}
-
-.save:hover {
-  background:#16a34a;
-}
-
-.time {
-  width:120px;
+.wait-row {
+  padding:6px;
+  border-radius:10px;
 }
 </style>
 </head>
@@ -117,14 +115,12 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-// 닉네임
 let myName = localStorage.getItem("nickname");
 if(!myName){
   myName = prompt("닉네임 입력") || "익명";
   localStorage.setItem("nickname", myName);
 }
 
-// 구조
 let layout = {
   "강남자리": ["11시 방","11시 외각","1시 방","1시 외각"],
   "메인": ["5시 방","6시 방","6시 외각"],
@@ -134,15 +130,29 @@ let layout = {
 let state = {};
 let waitList = [];
 
+// 시간 색상
+function getTimeClass(time){
+  if(!time) return "wait-normal";
+
+  const now = new Date();
+  const [h,m] = time.split(":").map(Number);
+  const t = new Date();
+  t.setHours(h,m);
+
+  const diff = (t - now)/60000;
+
+  if(diff < 30) return "wait-urgent";
+  if(diff < 60) return "wait-soon";
+  return "wait-normal";
+}
+
 // 실시간
 db.ref("tracker").on("value", snap=>{
   let val = snap.val();
-
   if(!val){
     val = {state:{}, waitList:[{name:"",time:""}]};
     db.ref("tracker").set(val);
   }
-
   state = val.state || {};
   waitList = val.waitList || [];
   render();
@@ -174,20 +184,33 @@ function render(){
       label.className="label";
       label.innerText = pos;
 
+      const wrap = document.createElement("div");
+      wrap.className="input-wrap";
+
       const input = document.createElement("input");
       input.value = state[pos]?.name || "";
 
-      const user = document.createElement("span");
-      user.style.fontSize="11px";
-      user.style.color="#888";
+      const user = document.createElement("div");
+      user.className="user";
       user.innerText = state[pos]?.user ? `(${state[pos].user})` : "";
 
+      // 엔터 저장
       input.onkeydown = (e)=>{
         if(e.key==="Enter"){
           if(!input.value.trim()) return;
           state[pos] = {name:input.value, user:myName};
           save();
         }
+      };
+
+      // 버튼 저장
+      const saveBtn = document.createElement("button");
+      saveBtn.innerText="저장";
+      saveBtn.className="save";
+      saveBtn.onclick=()=>{
+        if(!input.value.trim()) return;
+        state[pos] = {name:input.value, user:myName};
+        save();
       };
 
       const del = document.createElement("button");
@@ -198,7 +221,9 @@ function render(){
         save();
       };
 
-      row.append(label, input, user, del);
+      wrap.append(input, saveBtn, del);
+
+      row.append(label, wrap, user);
       box.appendChild(row);
     });
 
@@ -215,7 +240,7 @@ function render(){
 
   waitList.forEach((w,i)=>{
     const row = document.createElement("div");
-    row.className="item";
+    row.className="item wait-row " + getTimeClass(w.time);
 
     const name = document.createElement("input");
     name.value = w.name;
@@ -230,11 +255,7 @@ function render(){
     saveBtn.className="save";
     saveBtn.onclick=()=>{
       if(!name.value.trim()) return;
-      waitList[i] = {
-        name:name.value,
-        time:time.value,
-        user:myName
-      };
+      waitList[i] = {name:name.value, time:time.value, user:myName};
       save();
     };
 
