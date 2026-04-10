@@ -13,84 +13,78 @@
 <style>
 body {
   font-family:'Pretendard';
-  background:#f1f5f9;
-  padding:30px;
+  background:#0f172a;
+  color:white;
+  padding:20px;
 }
 
 h2 {
   text-align:center;
-  margin-bottom:30px;
-  font-weight:600;
+  margin-bottom:10px;
+}
+
+.topbar {
+  text-align:center;
+  margin-bottom:20px;
+}
+
+.nickname {
+  font-size:14px;
+  color:#94a3b8;
 }
 
 .section {
-  max-width:700px;
-  margin:0 auto 20px;
-  background:white;
+  max-width:720px;
+  margin:20px auto;
+  background:#1e293b;
   border-radius:18px;
-  padding:25px;
-  box-shadow:0 10px 25px rgba(0,0,0,0.08);
+  padding:20px;
+  box-shadow:0 10px 30px rgba(0,0,0,0.4);
 }
 
 h3 {
   text-align:center;
-  margin-bottom:20px;
+  margin-bottom:15px;
 }
 
 .item {
   display:flex;
   justify-content:center;
   align-items:center;
-  gap:12px;
-  margin-bottom:12px;
+  gap:10px;
+  margin-bottom:10px;
 }
 
 .label {
   width:120px;
   text-align:right;
-  font-size:14px;
-  color:#555;
-}
-
-.input-wrap {
-  display:flex;
-  align-items:center;
-  gap:8px;
+  color:#cbd5f5;
 }
 
 input {
-  width:140px;
-  padding:7px;
-  border-radius:10px;
-  border:1px solid #ddd;
+  width:130px;
+  padding:6px;
+  border-radius:8px;
+  border:none;
   text-align:center;
 }
 
-.time { width:120px; }
+.time { width:110px; }
 
 button {
-  padding:6px 10px;
+  padding:5px 10px;
   border:none;
   border-radius:8px;
   cursor:pointer;
-  font-size:12px;
 }
 
 .save { background:#22c55e; color:white; }
-.del { background:#e5e7eb; }
-.del:hover { background:#ef4444; color:white; }
+.del { background:#475569; color:white; }
+.del:hover { background:#ef4444; }
 
-.user {
-  font-size:11px;
-  color:#888;
-  width:60px;
-  text-align:center;
-}
-
-/* 🔥 대기 색상 */
-.wait-normal { background:#e0f2fe; }
-.wait-soon { background:#fde68a; }
-.wait-urgent { background:#fecaca; }
+.wait-normal { background:#1e40af; }
+.wait-soon { background:#f59e0b; }
+.wait-urgent { background:#ef4444; }
 
 .wait-row {
   padding:6px;
@@ -102,9 +96,16 @@ button {
 <body>
 
 <h2>패도혈 실시간자리</h2>
+
+<div class="topbar">
+  <div id="nick" class="nickname"></div>
+  <button onclick="changeName()">닉네임 변경</button>
+</div>
+
 <div id="app"></div>
 
 <script>
+// 🔥 Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyAVBh5btDorOSdGOe6vH_eYYVjwokrdHOk",
   authDomain: "array-ff467.firebaseapp.com",
@@ -115,12 +116,33 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-let myName = localStorage.getItem("nickname");
-if(!myName){
-  myName = prompt("닉네임 입력") || "익명";
-  localStorage.setItem("nickname", myName);
+// 🔥 닉네임
+function getName(){
+  let name = localStorage.getItem("nickname");
+
+  if(!name || name === "null" || name.trim()===""){
+    name = prompt("닉네임 입력");
+
+    if(!name || name.trim()===""){
+      alert("닉네임 필수");
+      return getName();
+    }
+
+    localStorage.setItem("nickname", name.trim());
+  }
+
+  return name;
 }
 
+let myName = getName();
+document.getElementById("nick").innerText = `👤 ${myName}`;
+
+function changeName(){
+  localStorage.removeItem("nickname");
+  location.reload();
+}
+
+// 구조
 let layout = {
   "강남자리": ["11시 방","11시 외각","1시 방","1시 외각"],
   "메인": ["5시 방","6시 방","6시 외각"],
@@ -184,17 +206,14 @@ function render(){
       label.className="label";
       label.innerText = pos;
 
-      const wrap = document.createElement("div");
-      wrap.className="input-wrap";
-
       const input = document.createElement("input");
       input.value = state[pos]?.name || "";
 
       const user = document.createElement("div");
-      user.className="user";
+      user.style.fontSize="11px";
+      user.style.color="#94a3b8";
       user.innerText = state[pos]?.user ? `(${state[pos].user})` : "";
 
-      // 엔터 저장
       input.onkeydown = (e)=>{
         if(e.key==="Enter"){
           if(!input.value.trim()) return;
@@ -203,7 +222,6 @@ function render(){
         }
       };
 
-      // 버튼 저장
       const saveBtn = document.createElement("button");
       saveBtn.innerText="저장";
       saveBtn.className="save";
@@ -221,9 +239,7 @@ function render(){
         save();
       };
 
-      wrap.append(input, saveBtn, del);
-
-      row.append(label, wrap, user);
+      row.append(label, input, saveBtn, del, user);
       box.appendChild(row);
     });
 
@@ -248,7 +264,6 @@ function render(){
     const time = document.createElement("input");
     time.type="time";
     time.value = w.time;
-    time.className="time";
 
     const saveBtn = document.createElement("button");
     saveBtn.innerText="저장";
