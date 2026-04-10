@@ -11,30 +11,93 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 
 <style>
-body { font-family:'Pretendard'; background:#f5f7fa; padding:20px; }
-h2 { text-align:center; }
+body {
+  font-family:'Pretendard';
+  background:#f1f5f9;
+  padding:30px;
+}
+
+h2 {
+  text-align:center;
+  margin-bottom:30px;
+  font-weight:600;
+}
 
 .section {
-  max-width:600px;
-  margin:20px auto;
+  max-width:650px;
+  margin:0 auto 20px;
   background:white;
-  padding:15px;
-  border-radius:12px;
+  border-radius:18px;
+  padding:20px;
+  box-shadow:0 8px 20px rgba(0,0,0,0.06);
+}
+
+h3 {
+  text-align:center;
+  margin-bottom:15px;
+  font-weight:600;
 }
 
 .item {
   display:flex;
+  align-items:center;
   justify-content:center;
   gap:10px;
-  margin-bottom:8px;
+  margin-bottom:10px;
 }
 
-input { width:140px; text-align:center; }
+.label {
+  width:120px;
+  text-align:right;
+  font-size:14px;
+  color:#555;
+}
 
-button { padding:5px 10px; cursor:pointer; }
-.del { background:#ddd; }
-.save { background:#22c55e; color:white; }
-.auto { background:#3b82f6; color:white; }
+input {
+  width:150px;
+  padding:7px;
+  border-radius:10px;
+  border:1px solid #ddd;
+  text-align:center;
+  transition:0.2s;
+}
+
+input:focus {
+  outline:none;
+  border-color:#3b82f6;
+  box-shadow:0 0 0 2px rgba(59,130,246,0.2);
+}
+
+button {
+  padding:6px 10px;
+  border:none;
+  border-radius:8px;
+  cursor:pointer;
+  font-size:12px;
+  transition:0.2s;
+}
+
+.del {
+  background:#e5e7eb;
+}
+
+.del:hover {
+  background:#ef4444;
+  color:white;
+}
+
+.save {
+  background:#22c55e;
+  color:white;
+}
+
+.save:hover {
+  background:#16a34a;
+}
+
+.time {
+  width:120px;
+}
 </style>
 </head>
 
@@ -44,7 +107,6 @@ button { padding:5px 10px; cursor:pointer; }
 <div id="app"></div>
 
 <script>
-// 🔥 Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyAVBh5btDorOSdGOe6vH_eYYVjwokrdHOk",
   authDomain: "array-ff467.firebaseapp.com",
@@ -55,14 +117,14 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-// 🔥 닉네임
+// 닉네임
 let myName = localStorage.getItem("nickname");
 if(!myName){
   myName = prompt("닉네임 입력") || "익명";
   localStorage.setItem("nickname", myName);
 }
 
-// 데이터 구조
+// 구조
 let layout = {
   "강남자리": ["11시 방","11시 외각","1시 방","1시 외각"],
   "메인": ["5시 방","6시 방","6시 외각"],
@@ -72,7 +134,7 @@ let layout = {
 let state = {};
 let waitList = [];
 
-// 🔥 실시간 로드
+// 실시간
 db.ref("tracker").on("value", snap=>{
   let val = snap.val();
 
@@ -88,32 +150,7 @@ db.ref("tracker").on("value", snap=>{
 
 // 저장
 function save(){
-  db.ref("tracker").update({
-    state,
-    waitList
-  });
-}
-
-// 자동 배치
-function autoAssign(){
-  let empty = [];
-
-  Object.values(layout).forEach(arr=>{
-    arr.forEach(pos=>{
-      if(!state[pos]) empty.push(pos);
-    });
-  });
-
-  empty.forEach(pos=>{
-    if(waitList.length){
-      let w = waitList.shift();
-      if(w.name){
-        state[pos] = {name:w.name, user:myName};
-      }
-    }
-  });
-
-  save();
+  db.ref("tracker").update({state, waitList});
 }
 
 // 렌더
@@ -133,10 +170,16 @@ function render(){
       const row = document.createElement("div");
       row.className="item";
 
+      const label = document.createElement("div");
+      label.className="label";
+      label.innerText = pos;
+
       const input = document.createElement("input");
       input.value = state[pos]?.name || "";
 
       const user = document.createElement("span");
+      user.style.fontSize="11px";
+      user.style.color="#888";
       user.innerText = state[pos]?.user ? `(${state[pos].user})` : "";
 
       input.onkeydown = (e)=>{
@@ -155,7 +198,7 @@ function render(){
         save();
       };
 
-      row.append(input, user, del);
+      row.append(label, input, user, del);
       box.appendChild(row);
     });
 
@@ -180,6 +223,7 @@ function render(){
     const time = document.createElement("input");
     time.type="time";
     time.value = w.time;
+    time.className="time";
 
     const saveBtn = document.createElement("button");
     saveBtn.innerText="저장";
@@ -203,23 +247,19 @@ function render(){
       save();
     };
 
-    row.append(name,time,saveBtn,del);
+    row.append(name, time, saveBtn, del);
     waitBox.appendChild(row);
   });
 
   const add = document.createElement("button");
   add.innerText="대기 추가";
+  add.className="save";
   add.onclick=()=>{
     waitList.push({name:"",time:""});
     save();
   };
 
-  const auto = document.createElement("button");
-  auto.innerText="자동 배치";
-  auto.className="auto";
-  auto.onclick=autoAssign;
-
-  waitBox.append(add,auto);
+  waitBox.appendChild(add);
   app.appendChild(waitBox);
 }
 </script>
