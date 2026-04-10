@@ -13,7 +13,7 @@
 <style>
 body {
   font-family:'Pretendard';
-  background:#0f172a;
+  background:#000;
   color:white;
   padding:20px;
 }
@@ -36,10 +36,11 @@ h2 {
 .section {
   max-width:720px;
   margin:20px auto;
-  background:#1e293b;
+  background:#0b0b0b;
   border-radius:18px;
   padding:20px;
-  box-shadow:0 10px 30px rgba(0,0,0,0.4);
+  box-shadow:0 0 20px rgba(0,0,0,0.8);
+  border:1px solid #111;
 }
 
 h3 {
@@ -67,9 +68,9 @@ input {
   border-radius:8px;
   border:none;
   text-align:center;
+  background:#111;
+  color:white;
 }
-
-.time { width:110px; }
 
 button {
   padding:5px 10px;
@@ -78,13 +79,13 @@ button {
   cursor:pointer;
 }
 
-.save { background:#22c55e; color:white; }
-.del { background:#475569; color:white; }
-.del:hover { background:#ef4444; }
+.save { background:#16a34a; color:white; }
+.del { background:#374151; color:white; }
+.del:hover { background:#dc2626; }
 
-.wait-normal { background:#1e40af; }
-.wait-soon { background:#f59e0b; }
-.wait-urgent { background:#ef4444; }
+.wait-normal { background:#0b2a5a; }
+.wait-soon { background:#a16207; }
+.wait-urgent { background:#7f1d1d; }
 
 .wait-row {
   padding:6px;
@@ -99,15 +100,15 @@ button {
 
 <div class="topbar">
   <div id="nick" class="nickname"></div>
+  <div id="online" class="nickname"></div>
   <button onclick="changeName()">닉네임 변경</button>
 </div>
 
 <div id="app"></div>
 
 <script>
-// 🔥 Firebase
 const firebaseConfig = {
-  apiKey: "AIzaSyAVBh5btDorOSdGOe6vH_eYYVjwokrdHOk",
+  apiKey: "AIzaSyAVBh5btDorOSdGOeV8h_eYYVjwokrdHOk",
   authDomain: "array-ff467.firebaseapp.com",
   databaseURL: "https://array-ff467-default-rtdb.firebaseio.com/",
   projectId: "array-ff467"
@@ -116,26 +117,37 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
+// 🔥 유저 ID
+let uid = localStorage.getItem("uid");
+if(!uid){
+  uid = Math.random().toString(36).substring(2);
+  localStorage.setItem("uid", uid);
+}
+
 // 🔥 닉네임
 function getName(){
   let name = localStorage.getItem("nickname");
 
-  if(!name || name === "null" || name.trim()===""){
+  if(!name || name.trim()===""){
     name = prompt("닉네임 입력");
-
-    if(!name || name.trim()===""){
-      alert("닉네임 필수");
-      return getName();
-    }
-
+    if(!name || name.trim()==="") return getName();
     localStorage.setItem("nickname", name.trim());
   }
-
   return name;
 }
 
 let myName = getName();
 document.getElementById("nick").innerText = `👤 ${myName}`;
+
+// 🔥 접속자 표시
+const myRef = db.ref("presence/" + uid);
+myRef.set(true);
+myRef.onDisconnect().remove();
+
+db.ref("presence").on("value", snap=>{
+  const count = snap.numChildren();
+  document.getElementById("online").innerText = `🟢 접속자: ${count}`;
+});
 
 function changeName(){
   localStorage.removeItem("nickname");
@@ -152,22 +164,6 @@ let layout = {
 let state = {};
 let waitList = [];
 
-// 시간 색상
-function getTimeClass(time){
-  if(!time) return "wait-normal";
-
-  const now = new Date();
-  const [h,m] = time.split(":").map(Number);
-  const t = new Date();
-  t.setHours(h,m);
-
-  const diff = (t - now)/60000;
-
-  if(diff < 30) return "wait-urgent";
-  if(diff < 60) return "wait-soon";
-  return "wait-normal";
-}
-
 // 실시간
 db.ref("tracker").on("value", snap=>{
   let val = snap.val();
@@ -182,7 +178,23 @@ db.ref("tracker").on("value", snap=>{
 
 // 저장
 function save(){
-  db.ref("tracker").update({state, waitList});
+  db.ref("tracker").set({state, waitList});
+}
+
+// 시간 색상
+function getTimeClass(time){
+  if(!time) return "wait-normal";
+
+  const now = new Date();
+  const [h,m] = time.split(":").map(Number);
+  const t = new Date();
+  t.setHours(h,m);
+
+  const diff = (t - now)/60000;
+
+  if(diff < 30) return "wait-urgent";
+  if(diff < 60) return "wait-soon";
+  return "wait-normal";
 }
 
 // 렌더
@@ -213,14 +225,6 @@ function render(){
       user.style.fontSize="11px";
       user.style.color="#94a3b8";
       user.innerText = state[pos]?.user ? `(${state[pos].user})` : "";
-
-      input.onkeydown = (e)=>{
-        if(e.key==="Enter"){
-          if(!input.value.trim()) return;
-          state[pos] = {name:input.value, user:myName};
-          save();
-        }
-      };
 
       const saveBtn = document.createElement("button");
       saveBtn.innerText="저장";
@@ -269,7 +273,6 @@ function render(){
     saveBtn.innerText="저장";
     saveBtn.className="save";
     saveBtn.onclick=()=>{
-      if(!name.value.trim()) return;
       waitList[i] = {name:name.value, time:time.value, user:myName};
       save();
     };
