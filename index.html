@@ -19,7 +19,6 @@ h2 {
   margin-bottom:30px;
   font-size:24px;
   font-weight:600;
-  color:#111;
 }
 
 .section {
@@ -35,7 +34,6 @@ h3 {
   margin-bottom:12px;
   font-size:14px;
   color:#555;
-  font-weight:600;
 }
 
 .item {
@@ -58,16 +56,7 @@ input {
   padding:7px;
   border-radius:10px;
   border:1px solid #ddd;
-  background:white;
   text-align:center;
-  font-size:13px;
-  transition:0.2s;
-}
-
-input:focus {
-  border-color:#999;
-  box-shadow:0 2px 6px rgba(0,0,0,0.08);
-  outline:none;
 }
 
 button {
@@ -78,11 +67,6 @@ button {
   background:#111;
   color:white;
   cursor:pointer;
-  transition:0.2s;
-}
-
-button:hover {
-  background:#333;
 }
 
 .del {
@@ -90,14 +74,9 @@ button:hover {
   color:#333;
 }
 
-.del:hover {
-  background:#d1d5db;
-}
-
 .add-wait {
   width:100%;
   margin-top:12px;
-  background:#111;
 }
 </style>
 </head>
@@ -127,6 +106,8 @@ function render(){
   const app = document.getElementById('app');
   app.innerHTML = '';
 
+  let allInputs = [];
+
   Object.keys(data).forEach(section => {
     const box = document.createElement('div');
     box.className = 'section';
@@ -145,6 +126,8 @@ function render(){
 
       const input = document.createElement('input');
       input.value = state[label] || '';
+
+      allInputs.push(input);
 
       const saveBtn = document.createElement('button');
       saveBtn.innerText = '저장';
@@ -173,6 +156,7 @@ function render(){
     app.appendChild(box);
   });
 
+  // 대기
   const waitBox = document.createElement('div');
   waitBox.className = 'section';
 
@@ -190,6 +174,8 @@ function render(){
 
     const input = document.createElement('input');
     input.value = name;
+
+    allInputs.push(input);
 
     const saveBtn = document.createElement('button');
     saveBtn.innerText = '저장';
@@ -227,6 +213,34 @@ function render(){
 
   waitBox.appendChild(addBtn);
   app.appendChild(waitBox);
+
+  // 👉 엔터 기능 + 다음칸 이동
+  allInputs.forEach((input, index) => {
+    input.addEventListener('keydown', e => {
+      if(e.key === 'Enter'){
+        input.blur();
+
+        // 저장 처리
+        const label = input.parentElement.querySelector('.label').innerText;
+
+        if(label === "대기"){
+          const i = Array.from(input.parentElement.parentElement.children).indexOf(input.parentElement) - 1;
+          waitList[i] = input.value;
+        } else {
+          state[label] = input.value;
+        }
+
+        save();
+
+        // 다음칸 이동
+        if(allInputs[index + 1]){
+          allInputs[index + 1].focus();
+        } else {
+          input.focus();
+        }
+      }
+    });
+  });
 }
 
 render();
