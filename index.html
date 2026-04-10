@@ -1,68 +1,3 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>패도혈 실시간자리</title>
-
-<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet">
-
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
-
-<style>
-body { font-family:'Pretendard'; background:#f5f7fa; padding:30px; }
-h2 { text-align:center; margin-bottom:30px; }
-
-.section {
-  max-width:600px;
-  margin:0 auto 20px;
-  background:white;
-  border-radius:16px;
-  padding:20px;
-  box-shadow:0 4px 12px rgba(0,0,0,0.06);
-}
-
-.item {
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  gap:10px;
-  margin-bottom:10px;
-}
-
-.label { width:120px; text-align:center; }
-
-input {
-  width:150px;
-  padding:6px;
-  border-radius:8px;
-  border:1px solid #ddd;
-  text-align:center;
-}
-
-.time { width:120px; }
-
-button {
-  padding:6px 10px;
-  border:none;
-  border-radius:8px;
-  background:#111;
-  color:white;
-  cursor:pointer;
-}
-
-.del { background:#ddd; color:#333; }
-.auto-btn { background:#2563eb; }
-.save-btn { background:#16a34a; }
-</style>
-</head>
-
-<body>
-
-<h2>패도혈 실시간자리</h2>
-<div id="app"></div>
-
 <script>
 const firebaseConfig = {
   apiKey: "AIzaSyAVBh5btDorOSdGOe6vH_eYYVjwokrdHOk",
@@ -74,6 +9,13 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
+// 🔥 닉네임 (처음 1번만 입력)
+let myName = localStorage.getItem("nickname");
+if(!myName){
+  myName = prompt("닉네임 입력");
+  localStorage.setItem("nickname", myName);
+}
+
 let data = {
   "강남자리": ["11시 방","11시 외각","1시 방","1시 외각"],
   "메인": ["5시 방","6시 방","6시 외각"],
@@ -83,7 +25,7 @@ let data = {
 let state = {};
 let waitList = [];
 
-// 🔥 실시간
+// 실시간
 db.ref("tracker").on("value", snap=>{
   const val = snap.val() || {state:{}, waitList:[]};
   state = val.state;
@@ -91,7 +33,7 @@ db.ref("tracker").on("value", snap=>{
   render();
 });
 
-// 🔥 안전 저장
+// 저장
 function save(){
   db.ref("tracker").update({
     state: state,
@@ -117,7 +59,9 @@ function autoAssign(){
   empty.forEach(l=>{
     if(waitList.length){
       let n = waitList.shift();
-      if(n.name) state[l] = n.name;
+      if(n.name){
+        state[l] = {name:n.name, user:myName};
+      }
     }
   });
 
@@ -148,18 +92,30 @@ function render(){
       labelDiv.innerText = label;
 
       const input = document.createElement('input');
-      input.value = state[label] || '';
+      const value = state[label]?.name || '';
+      const user = state[label]?.user || '';
+
+      input.value = value;
       inputs.push(input);
 
-      // 엔터 저장 + 이동
+      // 엔터 저장
       input.addEventListener('keydown', e=>{
         if(e.key==='Enter'){
           if(input.value.trim()==="") return;
-          state[label] = input.value;
+          state[label] = {
+            name: input.value,
+            user: myName
+          };
           save();
           moveNext(inputs, input);
         }
       });
+
+      // 작성자 표시
+      const userTag = document.createElement('div');
+      userTag.style.fontSize = '11px';
+      userTag.style.color = '#888';
+      userTag.innerText = user ? `(${user})` : '';
 
       // 삭제 버튼
       const delBtn = document.createElement('button');
@@ -172,7 +128,9 @@ function render(){
 
       row.appendChild(labelDiv);
       row.appendChild(input);
+      row.appendChild(userTag);
       row.appendChild(delBtn);
+
       box.appendChild(row);
     });
 
@@ -197,9 +155,11 @@ function render(){
     const time = document.createElement('input');
     time.type='time';
     time.value=item.time;
-    time.className='time';
 
-    inputs.push(input);
+    const userTag = document.createElement('div');
+    userTag.style.fontSize='11px';
+    userTag.style.color='#888';
+    userTag.innerText = item.user ? `(${item.user})` : '';
 
     const saveBtn = document.createElement('button');
     saveBtn.innerText='저장';
@@ -208,7 +168,8 @@ function render(){
       if(input.value.trim()==="") return;
       waitList[i] = {
         name: input.value,
-        time: time.value
+        time: time.value,
+        user: myName
       };
       save();
     };
@@ -224,6 +185,7 @@ function render(){
 
     row.appendChild(input);
     row.appendChild(time);
+    row.appendChild(userTag);
     row.appendChild(saveBtn);
     row.appendChild(del);
 
@@ -233,7 +195,7 @@ function render(){
   const add = document.createElement('button');
   add.innerText="대기 추가";
   add.onclick=()=>{
-    waitList.push({name:"",time:""});
+    waitList.push({name:"",time:"",user:""});
     save();
   };
 
@@ -247,6 +209,3 @@ function render(){
   app.appendChild(waitBox);
 }
 </script>
-
-</body>
-</html>
